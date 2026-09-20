@@ -2,6 +2,6 @@ name: smoke
 on: { workflow_dispatch: {} }
 jobs:
   hello:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - run: echo hello-from-legit-backend

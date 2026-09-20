@@ -125,7 +125,6 @@ body {
   border: 1.5px solid var(--line); background: var(--paper);
 }
 .fcard input:focus, .fcard textarea:focus { outline: none; border-color: var(--mint); background: #fff; }
-.static-val { padding: 10px 12px; background: #f4f1ea; border-radius: 10px; font-size: 1rem; font-weight: 600; }
 .pcard .total { display: flex; justify-content: space-between; font-size: 1.05rem; font-weight: 800; padding: 10px 0; }
 .pcard .note { font-size: .82rem; color: var(--muted); line-height: 1.5; margin: 8px 0; }
 .pcard input.pay-email { width: 100%; font-size: 1rem; padding: 12px; border-radius: 10px; border: 1.5px solid var(--line); margin-bottom: 10px; }
