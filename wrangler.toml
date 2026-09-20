@@ -8,6 +8,11 @@ main = "worker/src/index.js"
 compatibility_date = "2026-09-20"
 workers_dev = true
 
+# ---- Custom-domain API route: the Pages SPA serves everything EXCEPT /api/*.
+# Deployed route must match what the Cloudflare API holds
+# (POST /zones/{zone}/workers/routes {"pattern": ..., "script": "legit-api"}).
+routes = [{ pattern = "legit.mehyar.us/api/*", zone_name = "mehyar.us" }]
+
 # ---- D1: legit-db (states, sessions, filings, documents, payments, id_captures, ...) ----
 [[d1_databases]]
 binding = "LEGIT_DB"
