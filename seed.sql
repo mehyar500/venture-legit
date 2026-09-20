@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE TABLE IF NOT EXISTS id_captures (
   id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, legal_name TEXT,
   dob TEXT, street TEXT, city TEXT, state TEXT, zip TEXT, confidence REAL,
-  r2_key TEXT, captured_at TEXT DEFAULT (datetime('now')));
+  captured_at TEXT DEFAULT (datetime('now')));
 CREATE TABLE IF NOT EXISTS agent_runs (
   id INTEGER PRIMARY KEY AUTOINCREMENT, filing_id INTEGER, status TEXT DEFAULT 'pending',
   log_json TEXT DEFAULT '[]', created_at TEXT DEFAULT (datetime('now')));

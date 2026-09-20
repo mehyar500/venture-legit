@@ -52,6 +52,16 @@ export class LegitSession {
         session_id, token: row.token, stage: row.stage || "discovery",
         fields: JSON.parse(row.fields_json || "{}"), history: [], turns: 0,
       };
+    } else {
+      // Refresh stage/paid from D1: payment confirmation and doc generation
+      // update D1 outside the DO, so a warm DO would otherwise serve stale state.
+      const row = await this.db.prepare(
+        "SELECT stage, paid FROM sessions WHERE session_id = ?"
+      ).bind(session_id).first();
+      if (row) {
+        if (row.stage) sess.stage = row.stage;
+        sess.paid = !!row.paid;
+      }
     }
     return sess;
   }
@@ -163,15 +173,18 @@ Dates on US IDs are MM/DD/YYYY — convert carefully to YYYY-MM-DD. Reply with O
       return Response.json({ error: "could not read the ID photo — please retake it with better lighting" }, { status: 422 });
     }
 
+    // Strict PII minimization: id_captures stores ONLY the extracted fields.
+    // The raw image's R2 key is deliberately not persisted — the object is
+    // located by prefix in the sweep and auto-expires via bucket lifecycle.
     await this.db.prepare(
-      `INSERT INTO id_captures (session_id, legal_name, dob, street, city, state, zip, confidence, r2_key)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO id_captures (session_id, legal_name, dob, street, city, state, zip, confidence)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       session_id,
       extracted.legal_name || null, extracted.dob || null,
       extracted.street || null, extracted.city || null,
       extracted.state || null, extracted.zip || null,
-      extracted.confidence ?? null, key
+      extracted.confidence ?? null
     ).run();
 
     // Fold extracted fields into the conversation; advance the stage.

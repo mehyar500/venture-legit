@@ -20,6 +20,15 @@ function parseFeeCandidates(text) {
   return out;
 }
 
+// Pull candidate form-name phrases ("Articles of Organization", ...).
+function parseFormMentions(text) {
+  const out = new Set();
+  const re = /(articles of organization|certificate of (?:organization|formation)|application for (?:registration|authority)|statement of information|annual report|biennial statement)/gi;
+  let m;
+  while ((m = re.exec(text)) && out.size < 10) out.add(m[0].toLowerCase());
+  return [...out];
+}
+
 export async function runNightlyEtl(env) {
   const db = env.LEGIT_DB;
   const states = await db.prepare(
@@ -62,6 +71,16 @@ export async function runNightlyEtl(env) {
           await db.prepare(
             "INSERT INTO etl_alerts (state_code, alert_type, detail) VALUES (?, 'fee_change', ?)"
           ).bind(code, `Parsed fee $${(seenFee / 100).toFixed(2)} differs from D1 fee_cents=${st.fee_cents} for ${st.form_name}. Human review required before any customer sees a fee.`).run();
+        }
+        // Explicit form-change signal: the page changed but no longer references
+        // the expected formation form — the SOS may have renamed/replaced it.
+        const mentions = parseFormMentions(text);
+        const expected = (st.form_name || "").toLowerCase();
+        if (mentions.length && expected && !mentions.some((m) => expected.includes(m) || m.includes(expected))) {
+          summary.form_alerts = (summary.form_alerts || 0) + 1;
+          await db.prepare(
+            "INSERT INTO etl_alerts (state_code, alert_type, detail) VALUES (?, 'form_change', ?)"
+          ).bind(code, `Portal page changed and no longer references the expected form "${st.form_name}". Form phrases found: ${mentions.join("; ")}. Human review required before any customer sees a form name.`).run();
         }
         summary.checked++;
       } catch (e) {
