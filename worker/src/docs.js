@@ -96,7 +96,7 @@ function einWalkthroughHtml(f, st) {
 <p class="meta">The IRS has no API, so you complete this yourself at <strong>irs.gov</strong> (search "EIN Assistant"). It's free and takes about 10 minutes. Hours: Mon–Fri, 7:00 a.m.–10:00 p.m. Eastern.</p>
 ${DISCLAIMER_FOOTER}
 <h2>Before you start, have ready</h2>
-<ul><li>Legal name: ${esc(f.legal_name)}</li><li>LLC name: ${esc(f.business_name)}</li><li>Address: ${esc(f.street)}, ${esc(f.city)}, ${esc(f.state_code)} ${esc(f.zip)}</li></ul>
+<ul><li>Legal name: ${esc(f.legal_name)}</li><li>LLC name: ${esc(f.business_name)}</li><li>Address: ${esc(f.street)}, ${esc(f.city)}, ${esc(f.state || f.state_code)} ${esc(f.zip)}</li></ul>
 <h2>Screen by screen</h2>
 <ol>
 <li><strong>What type of legal structure?</strong> → Limited Liability Company (LLC).</li>
