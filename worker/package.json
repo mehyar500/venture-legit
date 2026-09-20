@@ -1,0 +1,1 @@
+{"dependencies":{"@cloudflare/puppeteer":"^2.3.0"},"devDependencies":{"wrangler":"^4.0.0"},"name":"legit-api-worker","private":true,"scripts":{"deploy":"wrangler deploy"},"type":"module","version":"1.0.0"}

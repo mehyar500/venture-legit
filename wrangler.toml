@@ -1,0 +1,52 @@
+# legit-api — Cloudflare Worker for the Legit LLC-formation PWA ($39 Legit Launch Kit).
+# Deployed ONLY via GitHub Actions (`wrangler deploy` inside the workflow).
+# NEVER `wrangler pages deploy` from anywhere. All bindings live here so every
+# deploy carries them (the 2026-09-14 mehyar-web lesson).
+
+name = "legit-api"
+main = "worker/src/index.js"
+compatibility_date = "2026-09-20"
+workers_dev = true
+
+# ---- D1: legit-db (states, sessions, filings, documents, payments, id_captures, ...) ----
+[[d1_databases]]
+binding = "LEGIT_DB"
+database_name = "legit-db"
+database_id = "f10eb2cb-023a-44d1-bf43-506f0948b9d8"
+
+# ---- R2: legit-data (id-captures/ + vault/) ----
+[[r2_buckets]]
+binding = "LEGIT_DATA"
+bucket_name = "legit-data"
+
+# ---- Durable Object: one LegitSession per conversation ----
+[[durable_objects.bindings]]
+name = "LEGIT_SESSION"
+class_name = "LegitSession"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["LegitSession"]
+
+# ---- Workers AI (routed through the legit-gateway AI Gateway in code) ----
+[ai]
+binding = "AI"
+
+# ---- Browser Rendering (PDF doc generation + nightly ETL page checks) ----
+[browser]
+binding = "BROWSER"
+
+# ---- Crons: nightly 2 AM EDT fee-watch ETL (+ PII sweep), weekly Sunday 9 AM EDT nudges ----
+[triggers]
+crons = ["0 6 * * *", "0 13 * * 0"]
+
+# ---- Vars (non-secret). URL_SIGNING_KEY is a real secret, set via API, NOT here. ----
+[vars]
+AI_GATEWAY_ID = "legit-gateway"
+CHAT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+CHAT_MODEL_FALLBACK = "@cf/qwen/qwen3-30b-a3b-fp8"
+VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct"
+MEHYAR_PAY_BASE = "https://mehyar.us"
+BROWSER_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
+PRODUCT_ID = "legit-launch-kit"
+PRICE_CENTS = "3900"
