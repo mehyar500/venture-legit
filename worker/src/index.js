@@ -285,3 +285,5 @@ export default {
     })());
   },
 };
+
+// legit-api v1.0.0
