@@ -104,6 +104,11 @@ export const TOOLS = [
 // One chat completion through the AI Gateway. Code-level fallback to the
 // secondary model if the primary errors (gateway gives us caching + cost
 // tracking either way).
+//
+// 2026-09-20: the AI Gateway's OpenAI normalization rejects Workers AI tool
+// calls that lack an `id` field (both verified chat models omit it), so any
+// gateway-routed turn that emits tool calls throws. Fall back to a direct
+// (non-gateway) Workers AI call and synthesize ids client-side.
 export async function chatComplete(env, messages, tools) {
   const gw = { id: env.AI_GATEWAY_ID || "legit-gateway", skipCache: false, cacheTtl: 3600 };
   const models = [env.CHAT_MODEL, env.CHAT_MODEL_FALLBACK].filter(Boolean);
@@ -111,6 +116,17 @@ export async function chatComplete(env, messages, tools) {
   for (const model of models) {
     try {
       const res = await env.AI.run(model, { messages, tools }, { gateway: gw });
+      return { res, model };
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  for (const model of models) {
+    try {
+      const res = await env.AI.run(model, { messages, tools });
+      for (const tc of res.tool_calls || []) {
+        if (!tc.id) tc.id = "call_" + crypto.randomUUID().replace(/-/g, "").slice(0, 24);
+      }
       return { res, model };
     } catch (e) {
       lastErr = e;
