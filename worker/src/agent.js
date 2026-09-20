@@ -107,23 +107,32 @@ export const TOOLS = [
 //
 // 2026-09-20: the AI Gateway's OpenAI normalization rejects Workers AI tool
 // calls that lack an `id` field (both verified chat models omit it), so any
-// gateway-routed turn that emits tool calls throws. Fall back to a direct
-// (non-gateway) Workers AI call and synthesize ids client-side.
+// gateway-routed turn that emits tool calls throws. The direct Workers AI
+// *binding* throws the same 8007 platform validation. Chat therefore calls
+// the REST /ai/run endpoint directly with a scoped API token (secret
+// CF_AI_TOKEN, "Workers AI Read"); that endpoint is lenient and returns the
+// same native format. ids are synthesized client-side for message history.
+const CF_ACCOUNT_ID = "621600637337cc1c9ecb7095508bc732";
+
+async function aiRun(env, model, messages, tools) {
+  const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${model}`;
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${env.CF_AI_TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ messages, tools }),
+  });
+  if (!r.ok) throw new Error(`workers-ai ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  const d = await r.json();
+  if (!d.success) throw new Error(`workers-ai error: ${JSON.stringify(d.errors || d).slice(0, 200)}`);
+  return d.result;
+}
+
 export async function chatComplete(env, messages, tools) {
-  const gw = { id: env.AI_GATEWAY_ID || "legit-gateway", skipCache: false, cacheTtl: 3600 };
   const models = [env.CHAT_MODEL, env.CHAT_MODEL_FALLBACK].filter(Boolean);
   let lastErr = null;
   for (const model of models) {
     try {
-      const res = await env.AI.run(model, { messages, tools }, { gateway: gw });
-      return { res, model };
-    } catch (e) {
-      lastErr = e;
-    }
-  }
-  for (const model of models) {
-    try {
-      const res = await env.AI.run(model, { messages, tools });
+      const res = await aiRun(env, model, messages, tools);
       for (const tc of res.tool_calls || []) {
         if (!tc.id) tc.id = "call_" + crypto.randomUUID().replace(/-/g, "").slice(0, 24);
       }
