@@ -20,10 +20,19 @@ export async function createCheckout(env, { session_id, email }) {
     throw new Error(`checkout failed: ${JSON.stringify(data).slice(0, 200)}`);
   }
   await env.LEGIT_DB.prepare(
-    `INSERT INTO payments (session_id, payment_id, access_token, email, amount_cents, status)
-     VALUES (?, ?, ?, ?, ?, 'pending')`
-  ).bind(session_id, data.payment_id, data.token, email, Number(env.PRICE_CENTS || 3900)).run();
+    `INSERT INTO payments (session_id, payment_id, access_token, email, amount_cents, status, checkout_url)
+     VALUES (?, ?, ?, ?, ?, 'pending', ?)`
+  ).bind(session_id, data.payment_id, data.token, email, Number(env.PRICE_CENTS || 3900), data.checkout_url).run();
   return { checkout_url: data.checkout_url, access_token: data.token, payment_id: data.payment_id };
+}
+
+// Idempotent checkout reuse: return the stored checkout URL for a pending
+// payment (created earlier this session) instead of minting a duplicate.
+export async function getCheckoutUrl(env, access_token) {
+  const row = await env.LEGIT_DB.prepare(
+    "SELECT checkout_url FROM payments WHERE access_token = ? ORDER BY id DESC LIMIT 1"
+  ).bind(access_token).first();
+  return row && row.checkout_url ? { checkout_url: row.checkout_url } : null;
 }
 
 export async function fetchPaidStatus(env, access_token) {

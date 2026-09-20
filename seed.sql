@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS documents (
 CREATE TABLE IF NOT EXISTS payments (
   id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, payment_id INTEGER,
   access_token TEXT, email TEXT, amount_cents INTEGER, status TEXT DEFAULT 'pending',
-  paid_at TEXT, created_at TEXT DEFAULT (datetime('now')));
+  paid_at TEXT, checkout_url TEXT, created_at TEXT DEFAULT (datetime('now')));
 CREATE TABLE IF NOT EXISTS id_captures (
   id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, legal_name TEXT,
   dob TEXT, street TEXT, city TEXT, state TEXT, zip TEXT, confidence REAL,

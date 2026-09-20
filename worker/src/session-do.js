@@ -188,7 +188,9 @@ Dates on US IDs are MM/DD/YYYY — convert carefully to YYYY-MM-DD. Reply with O
     ).run();
 
     // Fold extracted fields into the conversation; advance the stage.
+    // id_extracted gates charge_card: no payment before the ID photo step.
     const f = sess.fields;
+    f.id_extracted = true;
     if (extracted.legal_name) f.legal_name = extracted.legal_name;
     if (extracted.dob) f.dob = extracted.dob;
     if (extracted.street) f.street = extracted.street;

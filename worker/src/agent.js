@@ -249,9 +249,37 @@ export async function executeTool(env, db, sess, cards, call, ctx) {
   }
 
   if (name === "charge_card") {
+    // HARD GATES (2026-09-20 E2E): the model must not invent its way to money.
+    // 1. Email must come from the session fields (save_field when the USER
+    //    gave it) — a model-invented args.email (e.g. user@example.com) is
+    //    rejected. 2. The ID photo step must be done (the spec's magic
+    //    moment: ID -> pre-filled forms -> confirm -> pay). 3. Idempotent:
+    //    an existing pending checkout for this session is reused, never
+    //    duplicated.
+    const email = sess.fields.email;
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return { error: "Need the user's real email before creating checkout. Ask for it (ask_field: email) and record it with save_field only when they give it — never invent one." };
+    }
+    if (!sess.fields.id_extracted) {
+      return { error: "The ID photo step isn't done yet. Ask the user to upload their ID first (upload_id), then show the pre-filled form (preview_form) for confirmation, and only then charge." };
+    }
+    const existing = await db.prepare(
+      "SELECT access_token, payment_id FROM payments WHERE session_id = ? AND status = 'pending' ORDER BY id DESC LIMIT 1"
+    ).bind(sess.session_id).first();
+    if (existing) {
+      const co = await (await import("./pay.js")).getCheckoutUrl(env, existing.access_token);
+      if (co && co.checkout_url) {
+        cards.push({
+          type: "payment",
+          checkout_url: co.checkout_url,
+          amount_cents: 3900,
+          note: "$39 one-time. Card details go to Stripe — Legit never sees them.",
+        });
+        sess.stage = "payment";
+        return { checkout_url: co.checkout_url, payment_id: existing.payment_id, amount_cents: 3900, reused: true };
+      }
+    }
     const { createCheckout } = await import("./pay.js");
-    const email = args.email || sess.fields.email;
-    if (!email) return { error: "Need the user's email before creating checkout. Ask for it (ask_field: email)." };
     const co = await createCheckout(env, { session_id: sess.session_id, email });
     cards.push({
       type: "payment",
