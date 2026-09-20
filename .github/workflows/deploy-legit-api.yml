@@ -6,13 +6,14 @@ name: deploy-legit-api
 
 on:
   push:
-    branches: [master]
+    branches: [main]
     paths:
       - "worker/**"
       - "wrangler.toml"
       - "seed.sql"
       - "CONTRACT.md"
       - ".github/workflows/deploy-legit-api.yml"
+  workflow_dispatch: {}
 
 jobs:
   deploy:
