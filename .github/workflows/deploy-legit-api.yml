@@ -18,6 +18,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      URL_SIGNING_KEY: ${{ secrets.URL_SIGNING_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -35,7 +37,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: Install URL signing secret
-        if: ${{ secrets.URL_SIGNING_KEY != '' }}
-        run: printf '%s' "${{ secrets.URL_SIGNING_KEY }}" | npx wrangler secret put URL_SIGNING_KEY
+        if: ${{ env.URL_SIGNING_KEY != '' }}
+        run: printf '%s' "$URL_SIGNING_KEY" | npx wrangler secret put URL_SIGNING_KEY
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
