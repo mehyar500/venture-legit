@@ -145,18 +145,7 @@ const DOCS = [
   { slug: "bank-account-checklist", name: "Bank Account Checklist", render: bankChecklistHtml },
 ];
 
-async function renderPdf(env, html) {
-  const browser = await puppeteer.launch(env.BROWSER);
-  try {
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0", timeout: 30000 });
-    const pdf = await page.pdf({ format: "Letter", printBackground: true });
-    await page.close();
-    return pdf;
-  } finally {
-    await browser.close();
-  }
-}
+// (PDFs render inside generateDocsForSession on one shared browser.)
 
 // Generate all 4 docs for a paid session. Idempotent: skips docs already generated.
 export async function generateDocsForSession(env, session_id) {
@@ -170,20 +159,39 @@ export async function generateDocsForSession(env, session_id) {
   ).bind(fields.state_code || "").first();
   if (!st) throw new Error("state not set on session");
 
-  const made = [];
+  const pending = [];
   for (const doc of DOCS) {
     const existing = await db.prepare(
       "SELECT id FROM documents WHERE session_id = ? AND slug = ?"
     ).bind(session_id, doc.slug).first();
-    if (existing) { made.push(doc.slug); continue; }
-    const html = doc.render(fields, st);
-    const pdf = await renderPdf(env, html);
-    const key = `vault/${session_id}/${doc.slug}.pdf`;
-    await env.LEGIT_DATA.put(key, pdf, { httpMetadata: { contentType: "application/pdf" } });
-    await db.prepare(
-      `INSERT INTO documents (session_id, slug, name, r2_key, size_bytes) VALUES (?, ?, ?, ?, ?)`
-    ).bind(session_id, doc.slug, doc.name, key, pdf.byteLength).run();
-    made.push(doc.slug);
+    if (!existing) pending.push(doc);
+  }
+  if (!pending.length) return [];
+
+  // One shared browser for all docs: launching a fresh browser per PDF
+  // (~4 launches) exceeds what a single waitUntil reliably survives
+  // (2026-09-20 E2E: only 1 of 4 PDFs finished before the isolate died).
+  const made = [];
+  const browser = await puppeteer.launch(env.BROWSER);
+  try {
+    for (const doc of pending) {
+      const html = doc.render(fields, st);
+      const page = await browser.newPage();
+      try {
+        await page.setContent(html, { waitUntil: "networkidle0", timeout: 30000 });
+        const pdf = await page.pdf({ format: "Letter", printBackground: true });
+        const key = `vault/${session_id}/${doc.slug}.pdf`;
+        await env.LEGIT_DATA.put(key, pdf, { httpMetadata: { contentType: "application/pdf" } });
+        await db.prepare(
+          `INSERT INTO documents (session_id, slug, name, r2_key, size_bytes) VALUES (?, ?, ?, ?, ?)`
+        ).bind(session_id, doc.slug, doc.name, key, pdf.byteLength).run();
+        made.push(doc.slug);
+      } finally {
+        await page.close();
+      }
+    }
+  } finally {
+    await browser.close();
   }
   await db.prepare("UPDATE sessions SET stage = 'docs', updated_at = datetime('now') WHERE session_id = ?")
     .bind(session_id).run();
