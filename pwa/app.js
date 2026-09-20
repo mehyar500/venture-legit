@@ -359,7 +359,7 @@ async function handleCheckoutReturn() {
     } else {
       // docs generate in the background — poll the vault, then drop the download card in chat
       addMsg("Payment confirmed ✓ — your documents are being generated. I'll drop them here the moment they're ready.");
-      pollVaultForDocs(s, 20);
+      pollVaultForDocs(s, 20, access);
     }
   } catch (e) {
     setTyping(false);
@@ -370,9 +370,11 @@ async function handleCheckoutReturn() {
 
 /* poll GET /api/vault until docs appear (docs_ready flow), then show a download card */
 let vaultPollTimer = null;
-async function refreshVaultFromServer(s) {
+async function refreshVaultFromServer(s, accessToken) {
   try {
-    const v = await api(`/api/vault?token=${encodeURIComponent(s.token)}`, null, { method: "GET" });
+    let u = `/api/vault?token=${encodeURIComponent(s.token)}`;
+    if (accessToken) u += `&access_token=${encodeURIComponent(accessToken)}`;
+    const v = await api(u, null, { method: "GET" });
     const docs = v.docs || [];
     if (docs.length) {
       addCards([{ type: "download", title: "Your documents are ready", docs }]);
@@ -380,15 +382,15 @@ async function refreshVaultFromServer(s) {
     return docs.length;
   } catch { return 0; }
 }
-async function pollVaultForDocs(s, triesLeft) {
+async function pollVaultForDocs(s, triesLeft, accessToken) {
   clearTimeout(vaultPollTimer);
   if (triesLeft <= 0) {
     addMsg("Still generating — your documents will be in your vault shortly. Tap 🗂 anytime to check.");
     return;
   }
   vaultPollTimer = setTimeout(async () => {
-    const n = await refreshVaultFromServer(s);
-    if (!n) pollVaultForDocs(s, triesLeft - 1);
+    const n = await refreshVaultFromServer(s, accessToken);
+    if (!n) pollVaultForDocs(s, triesLeft - 1, accessToken);
   }, 15000);
 }
 

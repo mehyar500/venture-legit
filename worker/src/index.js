@@ -122,16 +122,20 @@ async function handleCheckout(req, env) {
 
 async function handlePaymentStatus(req, env, ctx, url) {
   const body = await req.json().catch(() => ({}));
-  const { session_id, token, access_token } = body;
-  const sess = await getSession(env, session_id, token);
-  if (!sess) return j({ error: "forbidden" }, 403);
+  const { access_token } = body;
   if (!access_token) return j({ error: "access_token required" }, 400);
 
   const db = env.LEGIT_DB;
+  // Bearer lookup by access_token alone. It is a 256-bit secret minted by the
+  // central checkout and handed only to the payer; the payer's browser may not
+  // hold the original chat session (fresh profile, cleared storage, another
+  // device). Requiring the original session_id here turned completed payments
+  // into 404s (found by live E2E 2026-09-20).
   const row = await db.prepare(
-    "SELECT id, status FROM payments WHERE session_id = ? AND access_token = ? ORDER BY id DESC LIMIT 1"
-  ).bind(session_id, access_token).first();
+    "SELECT id, session_id, status FROM payments WHERE access_token = ? ORDER BY id DESC LIMIT 1"
+  ).bind(access_token).first();
   if (!row) return j({ error: "payment not found" }, 404);
+  const session_id = row.session_id;
 
   // Server-side truth ONLY. Never trust a client ?paid=1 flag.
   let paid = row.status === "paid";
@@ -190,12 +194,25 @@ async function handlePaymentStatus(req, env, ctx, url) {
 
 async function handleVault(req, env, url) {
   const token = url.searchParams.get("token");
-  if (!token) return j({ error: "token required" }, 400);
-  const row = await env.LEGIT_DB.prepare(
-    "SELECT session_id FROM sessions WHERE token = ?"
-  ).bind(token).first();
-  if (!row) return j({ error: "forbidden" }, 403);
-  const docs = await vaultDownloadList(env, env.LEGIT_DB, row.session_id, url.origin);
+  const accessToken = url.searchParams.get("access_token");
+  if (!token && !accessToken) return j({ error: "token required" }, 400);
+  let session_id = null;
+  if (token) {
+    const srow = await env.LEGIT_DB.prepare(
+      "SELECT session_id FROM sessions WHERE token = ?"
+    ).bind(token).first();
+    if (srow) session_id = srow.session_id;
+  }
+  if (!session_id && accessToken) {
+    // Bearer fallback: the payer's browser may not hold the original session
+    // (fresh profile / another device); the payment access_token resolves it.
+    const prow = await env.LEGIT_DB.prepare(
+      "SELECT session_id FROM payments WHERE access_token = ? ORDER BY id DESC LIMIT 1"
+    ).bind(accessToken).first();
+    if (prow) session_id = prow.session_id;
+  }
+  if (!session_id) return j({ error: "forbidden" }, 403);
+  const docs = await vaultDownloadList(env, env.LEGIT_DB, session_id, url.origin);
   return j({ docs });
 }
 
