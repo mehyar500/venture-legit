@@ -26,7 +26,7 @@ class_name = "LegitSession"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["LegitSession"]
+new_sqlite_classes = ["LegitSession"]
 
 # ---- Workers AI (routed through the legit-gateway AI Gateway in code) ----
 [ai]
@@ -38,7 +38,7 @@ binding = "BROWSER"
 
 # ---- Crons: nightly 2 AM EDT fee-watch ETL (+ PII sweep), weekly Sunday 9 AM EDT nudges ----
 [triggers]
-crons = ["0 6 * * *", "0 13 * * 0"]
+crons = ["0 6 * * *", "0 13 * * SUN"]  # CF rejects day-of-week "0"; use SUN
 
 # ---- Vars (non-secret). URL_SIGNING_KEY is a real secret, set via API, NOT here. ----
 [vars]
