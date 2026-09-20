@@ -314,6 +314,11 @@ export async function executeTool(env, db, sess, cards, call, ctx) {
 
   if (name === "fetch_vault") {
     const { vaultDownloadList } = await import("./docs.js");
+    const prow = await db.prepare("SELECT status FROM payments WHERE session_id = ? ORDER BY id DESC LIMIT 1")
+      .bind(sess.session_id).first();
+    if (!prow || prow.status !== "paid") {
+      return { docs: [], paid: false, message: "No documents exist yet — the $39 payment has not completed. Tell the user plainly: complete the checkout in the payment card above first, then the documents generate. NEVER say documents are ready before payment." };
+    }
     const docs = await vaultDownloadList(env, db, sess.session_id, ctx.host);
     cards.push({ type: "download", docs });
     return { docs: docs.map((d) => d.name) };
