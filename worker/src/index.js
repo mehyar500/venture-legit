@@ -5,7 +5,7 @@
 
 import { LegitSession } from "./session-do.js";
 import { createCheckout, fetchPaidStatus } from "./pay.js";
-import { generateDocsForSession, vaultDownloadList } from "./docs.js";
+import { generateDocsForSession, vaultDownloadList, DOCS } from "./docs.js";
 import { runNightlyEtl, runWeeklyNudges, sweepPii } from "./etl.js";
 import { signUrl, verifyUrl } from "./sign.js";
 
@@ -161,9 +161,12 @@ async function handlePaymentStatus(req, env, ctx, url) {
 
   const docs = await db.prepare("SELECT id FROM documents WHERE session_id = ?").bind(session_id).all();
   const docCount = (docs.results || []).length;
-  if (docCount === 0) {
-    // Paid but docs not generated yet (user closed the tab, webhook raced, etc.)
-    // — generate now in the background; the frontend polls /api/vault.
+  // All-or-nothing: a partial batch (waitUntil cut off mid-run) must NOT
+  // report docs_ready=true. Resume generation until every doc exists.
+  if (docCount < DOCS.length) {
+    // Paid but docs not (fully) generated yet (user closed the tab, webhook raced,
+    // waitUntil died mid-batch, etc.) — generate now in the background; the
+    // frontend polls /api/vault.
     ctx.waitUntil(generateDocsForSession(env, session_id).catch((e) =>
       console.log(`[docs] generation failed for ${session_id}: ${String(e && e.message || e).slice(0, 200)}`)
     ));

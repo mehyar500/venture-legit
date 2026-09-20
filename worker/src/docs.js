@@ -138,7 +138,7 @@ ${DISCLAIMER_FOOTER}
 </body></html>`;
 }
 
-const DOCS = [
+export const DOCS = [
   { slug: "articles-of-organization", name: "Articles of Organization (pre-filled)", render: articlesHtml },
   { slug: "operating-agreement", name: "Operating Agreement", render: operatingAgreementHtml },
   { slug: "ein-walkthrough", name: "EIN Walkthrough (IRS.gov, customized)", render: einWalkthroughHtml },
