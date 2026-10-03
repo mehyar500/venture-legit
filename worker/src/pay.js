@@ -1,5 +1,5 @@
-// Money path: centralized mehyar.us Stripe checkout. Test mode ONLY.
-// No new Stripe keys. No live path exists in this module.
+// Money path: centralized mehyar.us Stripe checkout. LIVE mode (no `test` flag).
+// No new Stripe keys. Price comes only from D1 billing_products.
 //
 // Paid-detection rule: the ONLY thing that gates paid features is the
 // server-side GET /api/pay/status?token=... returning paid===true.
@@ -13,7 +13,7 @@ export async function createCheckout(env, { session_id, email }) {
       "Content-Type": "application/json",
       "User-Agent": env.BROWSER_UA, // mehyar.us bot firewall 1010-blocks non-browser clients
     },
-    body: JSON.stringify({ product_id: env.PRODUCT_ID || "legit-launch-kit", email, test: true }),
+    body: JSON.stringify({ product_id: env.PRODUCT_ID || "legit-launch-kit", email }),
   });
   const data = await res.json().catch(() => ({}));
   if (!data.ok || !data.checkout_url) {
